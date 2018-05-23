@@ -32,7 +32,9 @@ example input: {"tokens":[{"token":"Hello","start_offset":1,"end_offset":6,"type
 example output: ['Hello', 'World', 'NASA']
 
 STEP 5) Run Sensegram and find out sense and confidence
-example input runSensegram("NASA","Hello World NASA!")
+example input: runSensegram("NASA","Hello World NASA!")
+example output: {'targetword': 'Greg', 'context': 'Hello World Greg!', 'sense': 'Greg#0', 'confidence': 1.0, 'LARCcode': 'LARCcode', 'worddefinition': 'worddefinition'}
+
 
 STEP 6) Check the database to find LARC code and definition
 
