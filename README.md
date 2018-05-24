@@ -49,3 +49,21 @@ parses through excel document and pulls out acroynm and context
 returns list of lists and excel workbook with two columns filled in
 
 Extra Feature 3) appends LARC code to word 
+
+
+
+Currently Working:
+Steps 1, 2, 5.
+
+Installation:
+Directory structure
+~/Sensegram
+~/VTCBIANASA
+
+Make sure Sensegram is installed and working on the same level as the project folder
+
+1) Install Sensegram
+2) Install this repo
+3) cd into this repo
+4) python runserver.py will initialize the server.
+5) send POST requests to localhost:5000/disambiguate, with header application/json and data {context:some string}
