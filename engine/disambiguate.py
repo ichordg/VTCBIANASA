@@ -62,6 +62,7 @@ class Disambiguator(Thread):
 	#Disambiguation loop. Looks for entries on self._work_queue and initializes DisambWorkers when
 	#work is found.
 	def run(self):
+		#TODO: Make continuous
 		while not self.has_work:
 			if not self._work_queue.empty():
 				print('Work Found!')
@@ -96,8 +97,19 @@ class DisambWorker(Thread):
 				self._work_queue.put(context)
 				self._work_queue.task_done()
 				continue
+			
+			#Do the disambiguation
+			log.info('Processing context: {}'.format(context))
+			
+			#TODO: targeting function
+			target = 'temp'
+			
+			#Disambiguate
+			result = self._model.disambiguate(context, target)
 			self._running = False
+		
 		print('Work finished!')
+		print(result)
 		
 	def stop(self):
 		self._running = False
