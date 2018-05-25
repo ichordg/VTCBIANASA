@@ -18,7 +18,7 @@ if __name__ == '__main__':
 	
 	#Establish Logging
 	logging.basicConfig(stream=sys.stdout, level=logging.INFO,
-		format='%(asctime)s [%(module)11s] [%(levelname)7s] %(message)s')
+		format='%(asctime)s [%(module)15s] [%(levelname)7s] %(message)s')
 	
 	logging.getLogger("engine.app").setLevel(logging.INFO)
 	logging.getLogger("engine.disambiguate").setLevel(logging.INFO)
