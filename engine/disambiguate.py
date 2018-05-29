@@ -20,7 +20,6 @@ from threading import Thread
 log = logging.getLogger(__name__)
 
 class Disambiguator(Thread):
-	
 	def __init__(self, work_queue):
 		Thread.__init__(self)
 		self.daemon = True
@@ -91,7 +90,6 @@ class Disambiguator(Thread):
 			self._workers.append(worker)
 	
 class DisambWorker(Thread):
-	
 	def __init__(self, work_queue, wsd_model, spacy_model):
 		Thread.__init__(self)
 		self.log = logging.getLogger(__name__)
@@ -125,6 +123,33 @@ class DisambWorker(Thread):
 			
 			print(result)
 			
+			#TODO: SQL integration
+			
+			#Fake SQL database
+			test_dict = {
+					"test#0" : 10001,
+					"quick#0" : 10002,
+					"brown#0" : 10003,
+					"word#0" : 10004
+				}
+			#Final output array
+			output = []
+			
+			#For every word in the disambiguation results array
+			for word_pair in result:
+				#if the sense ID is a key in the DB
+				if word_pair[0] in test_dict:
+					#Get the LaRC code, extend the ID to the tuple, add it to the ouptut
+					word_pair = word_pair + (test_dict[word_pair[0]],)
+					output.append(word_pair)
+			
+			print(output)
+			
+			#Extracting words without sense-tag
+			for word_pair in result:
+				word = word_pair[0][:word_pair[0].find('#')]
+				print(word)
+			
 			self._running = False
 		
 		self._work_queue.task_done()
@@ -133,6 +158,7 @@ class DisambWorker(Thread):
 	def stop(self):
 		self._running = False
 		
+	#Deprecated
 	def find_target_word(self, context):
 		tokens = self._spacy_model(context)
 		tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
