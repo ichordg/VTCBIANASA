@@ -15,6 +15,7 @@ from queue import Queue
 
 if __name__ == '__main__':
 	work_queue = Queue()
+	output_queue = Queue()
 	
 	#Establish Logging
 	logging.basicConfig(stream=sys.stdout, level=logging.INFO,
@@ -24,9 +25,9 @@ if __name__ == '__main__':
 	logging.getLogger("engine.disambiguate").setLevel(logging.INFO)
 	
 	#Start-up DE Engine
-	disam = Disambiguator(work_queue)
+	disam = Disambiguator(work_queue, output_queue)
 	disam.start()
 	
 	#Start-up Server
-	app = DEngine(work_queue, __name__)
+	app = DEngine(work_queue, output_queue, __name__)
 	app.run()

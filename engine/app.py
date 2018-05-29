@@ -22,11 +22,12 @@ from .disambiguate import Disambiguator
 log = logging.getLogger(__name__)
 
 class DEngine(Flask):
-	def __init__(self, work_queue, *args, **kwargs):
+	def __init__(self, work_queue, output_queue, *args, **kwargs):
 		super(DEngine, self).__init__(*args, **kwargs)
 		#print("Hello DEngine World!")
 		
 		self._work_queue = work_queue
+		self._output_queue = output_queue
 		
 		log.info('Starting server...')
 		
