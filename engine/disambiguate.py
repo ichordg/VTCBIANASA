@@ -167,14 +167,13 @@ class DisambWorker(Thread):
 				if not token.is_stop:
 					result.append(self._model.disambiguate(context, token.text))
 			
-			print(result)
-			
 			#TODO: SQL integration
 			#Final output array
 			output = []
 			
 			#For every word in the disambiguation results array
 			for word_pair in result:
+				#Connect to the MySQL DB via PyMySQL
 				connection = pymysql.connect(
 					host='localhost',
 					user='root',
@@ -184,8 +183,11 @@ class DisambWorker(Thread):
 					cursorclass=pymysql.cursors.DictCursor)
 				try:
 					with connection.cursor() as cursor:
-						sql = "SELECT id, description FROM NASA2 WHERE senseID=\'{}\'".format(word_pair[0])
-						cursor.execute(sql)
+						#Query the server for the id, description of the given senseID
+						sql = "SELECT id, description FROM NASA2 WHERE senseID=%s"
+						cursor.execute(sql, (word_pair[0],))
+						
+						#TODO: Something to confirm senseID is unique
 						result = cursor.fetchall()
 						print(result)
 						if not all(result):
@@ -198,9 +200,11 @@ class DisambWorker(Thread):
 					connection.close()
 			
 			print(output)
+			response = Flask.jsonify(output)
 			
 			self._running = False
 		
+		time.sleep(15)
 		self._work_queue.task_done()
 		log.info('Context: \"{}\" disambiguated successfully.'.format(context))
 		
