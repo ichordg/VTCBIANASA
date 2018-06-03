@@ -68,6 +68,7 @@ class Disambiguator(Thread):
 		seconds = time.time() - start_time
 		log.warn('Completed in {:5.2f} seconds'.format(seconds))
 		
+		self._sense_vectors = sv
 		self.wsd_model = WSD(sv, wv, window=context_window_size, lang=lang,
 				max_context_words=context_words_max, ignore_case=ignore_case, verbose=verbose)
 		
@@ -91,14 +92,15 @@ class Disambiguator(Thread):
 	def create_workers(self, num_workers):
 		for i in range(num_workers):
 			worker = DisambWorker(self._config, self._work_queue, 
-				self._output_queue, self.wsd_model, self._spacy_model)
+				self._output_queue, self._sense_vectors, self.wsd_model, self._spacy_model)
 			worker.daemon = True
 			worker.start()
 			self._workers.append(worker)
 			
 	
 class DisambWorker(Thread):
-	def __init__(self, config, work_queue, output_queue, wsd_model, spacy_model):
+	
+	def __init__(self, config, work_queue, output_queue, sense_vectors, wsd_model, spacy_model):
 		Thread.__init__(self)
 		self.log = logging.getLogger(__name__)
 		self._running = True
@@ -107,6 +109,7 @@ class DisambWorker(Thread):
 		self._output_queue = output_queue
 		self._config = config
 		
+		self._sense_vectors = sense_vectors
 		self._model = wsd_model
 		self._spacy_model = spacy_model
 		
@@ -114,59 +117,18 @@ class DisambWorker(Thread):
 		
 	def run(self):
 		while self._running:
-			context = self._work_queue.get()
-			print(context)
+			job_id, method, context = self._work_queue.get()
+			print(job_id)
+			print(method)
 			if not self._running:
-				self._work_queue.put(context)
+				self._work_queue.put((job_id, method, context))
 				self._work_queue.task_done()
 				continue
 			
-			#Do the disambiguation
-			log.info('Processing context: \"{}\"'.format(context))
+			#There's probably a much better way to do this...
+			response = eval('self.{}(context)'.format(method))
 			
-			tokenized_context = self._spacy_model(context)
-			
-			result = []
-			
-			for token in tokenized_context:
-				if not token.is_stop:
-					result.append(self._model.disambiguate(context, token.text))
-			
-			#TODO: SQL integration
-			#Final output array
-			output = []
-			
-			#For every word in the disambiguation results array
-			for word_pair in result:
-				#Connect to the MySQL DB via PyMySQL
-				connection = pymysql.connect(
-					host=self._config['MYSQL']['HOST'],
-					port=int(self._config['MYSQL']['PORT']),
-					user=self._config['MYSQL']['USER'],
-					password=self._config['MYSQL']['PASSWORD'],
-					db=self._config['MYSQL']['DB_NAME'],
-					charset='utf8mb4',
-					cursorclass=pymysql.cursors.DictCursor)
-				try:
-					with connection.cursor() as cursor:
-						#Query the server for the id, description of the given senseID
-						sql = "SELECT id, description FROM NASA2 WHERE senseID=%s"
-						cursor.execute(sql, (word_pair[0],))
-						
-						#TODO: Something to confirm senseID is unique
-						result = cursor.fetchall()
-						print(result)
-						if not all(result):
-							word_pair += (result[0],)
-						else:
-							word_pair += ('',)
-						print(word_pair)
-						output.append(word_pair)
-				finally:
-					connection.close()
-			
-			print(output)
-			
+			self._output_queue[job_id] = response
 			self._running = False
 		
 		self._work_queue.task_done()
@@ -174,3 +136,101 @@ class DisambWorker(Thread):
 		
 	def stop(self):
 		self._running = False
+		
+	def get_senses(self, word):
+		senses = self._sense_vectors.get_senses(word, ignore_case=True)
+		
+		sense_dict = {}
+		
+		for sense_id, prob in senses:
+			sense_dict[sense_id]={
+				'probability':prob,
+				'most_similar':{}
+				}
+			rsense_dict={}
+			for rsense_id, sim in self._sense_vectors.wv.most_similar(sense_id):
+				rsense_dict[rsense_id]=sim
+			sense_dict[sense_id]['most_similar']=rsense_dict
+		
+		print(sense_dict)
+		
+		response = Flask.response_class(
+			response=json.dumps(sense_dict),
+			status=200,
+			mimetype='application/json'
+		)
+		
+		return response
+		
+	def disambiguate(self, context):
+		#Do the disambiguation
+		log.info('Processing context: \"{}\"'.format(context))
+		
+		tokenized_context = self._spacy_model(context)
+		
+		result = []
+		
+		disam_dict = {}
+		
+		for token in tokenized_context:
+			if not token.is_stop:
+				result.append(self._model.disambiguate(context, token.text))
+				disam_dict[token.text] = self._model.disambiguate(context, token.text)
+		
+		print(disam_dict)
+		
+		#TODO: SQL integration
+		#Final output array
+		output = { 
+			'context' : context,
+			'disambiguation' : {}}
+		
+		#For every word in the disambiguation results array
+		for word in disam_dict:
+			print(word)
+			print(disam_dict[word])
+			
+			word_pair = disam_dict[word]
+			#Connect to the MySQL DB via PyMySQL
+			connection = pymysql.connect(
+				host=self._config['MYSQL']['HOST'],
+				port=int(self._config['MYSQL']['PORT']),
+				user=self._config['MYSQL']['USER'],
+				password=self._config['MYSQL']['PASSWORD'],
+				db=self._config['MYSQL']['DB_NAME'],
+				charset='utf8mb4',
+				cursorclass=pymysql.cursors.DictCursor)
+			try:
+				with connection.cursor() as cursor:
+					#Query the server for the id, description of the given senseID
+					sql = "SELECT id, description FROM NASA2 WHERE senseID=%s"
+					cursor.execute(sql, (word_pair[0]))
+					
+					#TODO: Something to confirm senseID is unique
+					result = cursor.fetchall()
+					print(result)
+					if not all(result):
+						word_pair += (result[0],)
+					else:
+						word_pair += ('',)
+					print(word_pair)
+					disam_dict[word] = {
+						'sense':word_pair[0],
+						'confidence':word_pair[1],
+						'LaRC_ID':word_pair[2]}
+			finally:
+				connection.close()
+		
+		print(disam_dict)
+		
+		output['disambiguation'] = disam_dict
+		
+		print(output)
+		
+		response = Flask.response_class(
+			response=json.dumps(output),
+			status=200,
+			mimetype='application/json'
+		)
+		
+		return response

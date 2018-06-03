@@ -16,7 +16,7 @@ from queue import Queue
 
 if __name__ == '__main__':
 	work_queue = Queue()
-	output_queue = Queue()
+	output_queue = {}
 	
 	#Establish Logging
 	logging.basicConfig(stream=sys.stdout, level=logging.INFO,

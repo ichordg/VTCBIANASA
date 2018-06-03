@@ -50,7 +50,12 @@ class DEngine(Flask):
 		
 		self._work_queue.put((job_id, 'disambiguate', data['context']))
 		
-		return (data['context'], 200)
+		while not job_id in self._output_queue:
+			pass
+		
+		response = self._output_queue[job_id]
+		
+		return response
 	
 	def process_excel(self):
 		data = request.get_json()
@@ -63,8 +68,18 @@ class DEngine(Flask):
 	
 	def get_senses(self):
 		data = request.get_json()
+		job_id = uuid.uuid4().hex
 		
-		return('', 200)
+		print(data['word'])
+		
+		self._work_queue.put((job_id, 'get_senses', data['word']))
+		
+		while not job_id in self._output_queue:
+			pass
+		
+		response = self._output_queue[job_id]
+		
+		return response
 		
 class ExcelParser(Thread):
 	def __init__(self, path):
