@@ -3,6 +3,7 @@
 
 import logging
 import sys
+import configparser
 
 from threading import Thread
 from engine.app import DEngine
@@ -24,10 +25,15 @@ if __name__ == '__main__':
 	logging.getLogger("engine.app").setLevel(logging.INFO)
 	logging.getLogger("engine.disambiguate").setLevel(logging.INFO)
 	
+	#Scan Config file
+	#TODO: Check to see if config file exists and use default values otherwise
+	config = configparser.ConfigParser()
+	config.read('config.ini')
+	
 	#Start-up DE Engine
-	disam = Disambiguator(work_queue, output_queue)
+	disam = Disambiguator(config, work_queue, output_queue)
 	disam.start()
 	
 	#Start-up Server
-	app = DEngine(work_queue, output_queue, __name__)
+	app = DEngine(config, work_queue, output_queue, __name__)
 	app.run()

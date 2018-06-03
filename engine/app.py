@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import configparser
+import uuid
 
 #Importing Sensegram
 import sys
@@ -25,33 +27,28 @@ from .disambiguate import Disambiguator
 log = logging.getLogger(__name__)
 
 class DEngine(Flask):
-	def __init__(self, work_queue, output_queue, *args, **kwargs):
+	def __init__(self, config, work_queue, output_queue, *args, **kwargs):
 		super(DEngine, self).__init__(*args, **kwargs)
-		#print("Hello DEngine World!")
+		
 		self._work_queue = work_queue
 		self._output_queue = output_queue
+		self._config = config
 		
 		log.info('Starting server...')
 		
 		self.route('/', methods=['GET'])(self.hello_world)
 		self.route('/disambiguate', methods=['POST'])(self.disambiguate)
 		self.route('/processExcel', methods=['POST'])(self.process_excel)
+		self.route('/getSenses', methods=['POST'])(self.get_senses)
 		
 	def hello_world(self):
 		return "Hello World!"
 		
 	def disambiguate(self):
-		#print(request.headers)
-		#print(request.is_json)
-		#print(request.data)
-		#print(request.get_json())
-		
 		data = request.get_json()
+		job_id = uuid.uuid4().hex
 		
-		self._work_queue.put(data['context'])
-		
-		#print(self._work_queue)
-		#print(data.keys())
+		self._work_queue.put((job_id, 'disambiguate', data['context']))
 		
 		return (data['context'], 200)
 	
@@ -61,7 +58,12 @@ class DEngine(Flask):
 		
 		parser = ExcelParser(path)
 		parser.start()
-
+		
+		return('', 200)
+	
+	def get_senses(self):
+		data = request.get_json()
+		
 		return('', 200)
 		
 class ExcelParser(Thread):
