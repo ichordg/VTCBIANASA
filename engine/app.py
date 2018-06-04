@@ -61,7 +61,7 @@ class DEngine(Flask):
 		data = request.get_json()
 		path = data['path']
 		
-		parser = ExcelParser(path)
+		parser = ExcelParser(path, self._work_queue, self._output_queue)
 		parser.start()
 		
 		return('', 200)
@@ -82,10 +82,12 @@ class DEngine(Flask):
 		return response
 		
 class ExcelParser(Thread):
-	def __init__(self, path):
+	def __init__(self, path, work_queue, output_queue):
 		Thread.__init__(self)
 		self.daemon = True
 		self._path = path
+		self._work_queue = work_queue
+		self._output_queue = output_queue
 	
 	def run(self):
 		#evans code
@@ -98,7 +100,42 @@ class ExcelParser(Thread):
 		data = np.array(data)
 		data = data[0:,:2]
 		data = data[1:,:2].tolist()
-
+		
+		jobs = []
+		
+		for word, context in data:
+			job_id = uuid.uuid4().hex
+			
+			job = (job_id, 'disambiguate', context)
+			
+			self._work_queue.put(job)
+			jobs.append(job)
+			
+		
+		output = []
+		
+		while True:
+			if not jobs:
+				print('Exiting Loop..')
+				break
+			for job in jobs:
+				if job[0] in self._output_queue:
+					jobs.remove(job)
+					job += (self._output_queue[job[0]], )
+					
+					output.append(job)
+					
+			print(jobs)
+		
+		print(output)
+		
+		for row in data:
+			for out in output:
+				if out[2] in row:
+					row.append(out[3].get_data())
+		
+		print(data)
+		
 		res = data
 		csv_file = "/home/ichordg/deEngine/outputbook.csv"
 

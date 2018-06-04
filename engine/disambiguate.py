@@ -187,8 +187,6 @@ class DisambWorker(Thread):
 		
 		#For every word in the disambiguation results array
 		for word in disam_dict:
-			print(word)
-			print(disam_dict[word])
 			
 			word_pair = disam_dict[word]
 			#Connect to the MySQL DB via PyMySQL
@@ -203,17 +201,18 @@ class DisambWorker(Thread):
 			try:
 				with connection.cursor() as cursor:
 					#Query the server for the id, description of the given senseID
-					sql = "SELECT id, description FROM NASA2 WHERE senseID=%s"
-					cursor.execute(sql, (word_pair[0]))
+					sql = "SELECT id, description FROM {} WHERE senseID=\'{}\'".format(
+						self._config['MYSQL']['TABLE_NAME'], word_pair[0])
+						
+					print(sql)
+					cursor.execute(sql)
 					
 					#TODO: Something to confirm senseID is unique
 					result = cursor.fetchall()
-					print(result)
 					if not all(result):
 						word_pair += (result[0],)
 					else:
 						word_pair += ('',)
-					print(word_pair)
 					disam_dict[word] = {
 						'sense':word_pair[0],
 						'confidence':word_pair[1],
@@ -221,11 +220,7 @@ class DisambWorker(Thread):
 			finally:
 				connection.close()
 		
-		print(disam_dict)
-		
 		output['disambiguation'] = disam_dict
-		
-		print(output)
 		
 		response = Flask.response_class(
 			response=json.dumps(output),

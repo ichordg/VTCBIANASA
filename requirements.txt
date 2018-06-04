@@ -1,0 +1,5 @@
+Flask==0.12.2
+numpy=1.13.3
+PyMySQL==0.8.1
+gensim==3.4.0
+spacy==2.0.11
